@@ -1,73 +1,353 @@
-# React + TypeScript + Vite
+# Wave
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个基于 `React + TypeScript + Vite` 的串口示波器与 PID 调参上位机。
 
-Currently, two official plugins are available:
+项目核心能力：
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 串口实时接收并绘制多通道波形
+- 支持动态通道数识别
+- 支持 `String / Hex Raw` 串口控制台
+- 支持 PID 参数卡片编辑、单卡发送、批量发送
+- 支持 PID 参数导入/导出为 `JSON`
+- 支持示波器区域高度拖动
 
-## React Compiler
+## 环境要求
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 18+
+- Chrome / Edge 等支持 `Web Serial API` 的浏览器
 
-## Expanding the ESLint configuration
+说明：
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- 该项目依赖浏览器串口能力，普通不支持 `Web Serial API` 的浏览器无法使用串口功能。
+- 首次使用串口时，浏览器会弹出设备授权窗口。
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 安装与启动
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+默认开发环境启动后，按 Vite 控制台输出的地址访问即可。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+构建生产版本：
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+本地预览构建结果：
+
+```bash
+npm run preview
+```
+
+## 页面功能
+
+页面主要分为 3 个区域：
+
+### 1. 示波器工作区
+
+上方区域用于串口控制、波形显示和通道控制。
+
+支持：
+
+- `Select Device`：选择串口设备
+- `Connect / Disconnect`：连接或断开当前已选设备
+- `Freeze / Resume`：冻结或恢复波形刷新
+- `Auto Scale`：自动调整 Y 轴范围
+- `Clear`：清空当前波形数据和控制台数据
+- `Baud`：串口波特率
+- `Delimiter`：接收数据字段分隔符
+- `Cache`：历史缓存点数上限
+
+### 2. PID Parameter Cards
+
+下方左侧区域用于管理 PID 参数卡片。
+
+支持：
+
+- 新增 PID 卡片
+- 编辑卡片名称和目标 `ID`
+- 编辑 PID 浮点参数
+- 编辑功能开关位
+- 单卡发送
+- 全部发送
+- 导入 / 导出 `JSON`
+
+### 3. Data Stream
+
+下方右侧区域是串口控制台。
+
+支持：
+
+- 查看接收数据 `RX`
+- 查看发送数据 `TX`
+- `String` 模式查看字符串内容
+- `Hex Raw` 模式查看十六进制原始字节
+- `RX + TX / Only RX` 过滤
+- 清空控制台
+
+## 串口使用流程
+
+推荐按下面流程使用：
+
+1. 点击 `Select Device` 选择目标串口设备
+2. 设置 `Baud`
+3. 根据下位机输出格式选择 `Delimiter`
+4. 点击 `Connect`
+5. 查看波形与控制台
+6. 如需调参，在 PID 卡片区填写参数并发送
+
+说明：
+
+- 项目会记住浏览器已授权的设备，刷新页面后会尝试恢复已授权串口选择状态。
+- 连接按钮和设备选择按钮是分离的，方便切换设备。
+- 如果连接失败，不会继续错误复用失败设备。
+
+## 接收协议
+
+### 基本规则
+
+当前接收协议是“按行接收、按分隔符拆字段”的文本协议。
+
+每一行代表一个采样点：
+
+```text
+v1,v2,v3,...
+```
+
+或：
+
+```text
+v1 v2 v3 ...
+```
+
+一帧数据必须以换行结束：
+
+- `\n`
+- 或 `\r\n`
+
+### 分隔符
+
+当前支持以下分隔方式：
+
+- `,` 逗号
+- 空格
+- `\t` 制表符
+- `;` 分号
+
+在界面中通过 `Delimiter` 下拉框切换。
+
+### 数值解析规则
+
+每个字段会按 `parseFloat` 解析为浮点数。
+
+示例：
+
+```text
+1.0,2.5,-3.2
+```
+
+```text
+0.12 0.34 0.56
+```
+
+如果某个字段无法解析成合法数字，对应通道值会记为 `null`。
+
+### 通道数规则
+
+通道数由当前收到的一行数据字段数量自动推断。
+
+例如：
+
+```text
+1.0,2.0
+```
+
+表示当前帧有 2 个通道；
+
+```text
+1.0,2.0,3.0,4.0
+```
+
+表示当前帧有 4 个通道。
+
+当接收到的字段数变化时，界面会自动增减通道控制卡片。
+
+### 时间轴规则
+
+当前横轴时间不是下位机发来的时间戳，而是上位机根据接收节奏生成的相对时间。
+
+也就是说：
+
+- X 轴用于反映数据到达节奏
+- 不要求下位机额外发送时间字段
+
+## PID 发送协议
+
+### 协议格式
+
+当前发送协议为一行文本：
+
+```text
+PID,<id>,<kp>,<ki>,<kd>,<outMax>,<intMax>,<sepErr>,<errMax>,<pol>,<tMs>,<enable>,<outLim>,<intLim>,<intSep>,<errLim>\n
+```
+
+字段顺序固定如下：
+
+1. `PID`
+2. `targetId`
+3. `kp`
+4. `ki`
+5. `kd`
+6. `outMax`
+7. `intMax`
+8. `sepErr`
+9. `errMax`
+10. `pol`
+11. `tMs`
+12. `enable`
+13. `outLim`
+14. `intLim`
+15. `intSep`
+16. `errLim`
+
+### 标志位编码
+
+布尔开关会编码为：
+
+- `true -> 1`
+- `false -> 0`
+
+### 示例
+
+```text
+PID,pid_pitch,0.013,0,0.0025,100,100,0,0,1,5,1,1,1,0,0
+```
+
+实际发送时末尾会自动补 `\n`。
+
+### 发送校验
+
+发送前会检查：
+
+- `targetId` 不能为空
+- 所有浮点参数必须是可解析的有限数值
+
+如果参数不完整，卡片不会发送。
+
+## PID JSON 导入导出
+
+### 导出
+
+PID 参数可导出为 `JSON` 文件。
+
+导出时会保留工程里更适合阅读的普通小数形式，例如：
+
+- `8e-5` 会导出为 `0.00008`
+
+### 导入
+
+导入时支持两种格式：
+
+- 直接传卡片数组
+- 带 `cards` 字段的对象
+
+当前导出结构示例：
+
+```json
+{
+  "version": 1,
+  "exportedAt": "2026-04-20T00:19:41.917Z",
+  "cards": [
+    {
+      "uid": "pid-card-xxx",
+      "name": "PID Card 1",
+      "targetId": "pid_1",
+      "kp": "0.013",
+      "ki": "0",
+      "kd": "0.0025",
+      "outMax": "100",
+      "intMax": "100",
+      "sepErr": "0",
+      "errMax": "0",
+      "pol": "1",
+      "tMs": "5",
+      "enable": true,
+      "outLim": true,
+      "intLim": true,
+      "intSep": false,
+      "errLim": false
+    }
+  ]
+}
+```
+
+## 控制台说明
+
+`Data Stream` 显示的是串口收发日志：
+
+- `RX`：从串口收到的数据
+- `TX`：上位机发出去的数据
+- `ERROR`：发送失败等错误信息
+
+两种显示模式：
+
+- `String`：直接显示文本
+- `Hex Raw`：显示字节十六进制内容
+
+## 常见注意事项
+
+### 1. 连接不上串口
+
+请检查：
+
+- 浏览器是否支持 `Web Serial API`
+- 串口是否被其他软件占用
+- 波特率是否与下位机一致
+- 是否已经先点击 `Select Device`
+
+### 2. 波形不显示
+
+请检查：
+
+- 下位机每帧是否以换行结束
+- `Delimiter` 是否选择正确
+- 数据字段是否是合法数字
+- 通道是否被关闭显示
+
+### 3. PID 发送后设备无响应
+
+请检查：
+
+- 下位机是否使用当前 README 里的发送协议顺序
+- `targetId` 是否与设备端约定一致
+- 是否需要设备端按行读取，以 `\n` 作为结束符
+
+## 技术栈
+
+- React 19
+- TypeScript
+- Vite
+- ECharts
+- Web Serial API
+
+## 目录结构
+
+```text
+src/
+  components/   UI 组件
+  hooks/        状态与行为逻辑
+  utils/        协议与持久化工具
+  constants/    默认配置
+  styles/       分模块样式
+```
+
+## 后续可扩展方向
+
+- 增加自定义接收协议解析器
+- 增加更多 PID 模板
+- 增加串口发送历史
+- 增加配置持久化
+- 增加波形截图或数据导出
