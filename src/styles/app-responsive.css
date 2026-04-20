@@ -1,0 +1,64 @@
+@media (max-width: 1680px) {
+  .scope-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .channel-panel {
+    height: 320px;
+  }
+
+  .channel-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+
+  .scope-control-bar {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 1400px) {
+  .workspace-layout {
+    grid-template-rows: auto 10px auto !important;
+  }
+
+  .bottom-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .scope-control-form,
+  .scope-metrics {
+    flex-basis: 100%;
+  }
+
+  .scope-metrics {
+    margin-left: 0;
+  }
+
+  .device-pill {
+    max-width: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .channel-list,
+  .pid-card-list,
+  .pid-identity-grid,
+  .pid-parameter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-layout {
+    padding: 12px;
+  }
+
+  .bottom-workspace {
+    min-height: unset;
+  }
+
+  .scope-control-form,
+  .scope-control-actions,
+  .scope-metrics {
+    width: 100%;
+  }
+}
