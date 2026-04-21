@@ -77,7 +77,7 @@ export const PidTuneCardEditor: React.FC<PidTuneCardEditorProps> = ({
             type="text"
             value={card.targetId}
             onChange={(event) => onChange(card.uid, { targetId: event.target.value })}
-            placeholder="pid_yaw"
+            placeholder="1-4"
           />
         </label>
       </div>

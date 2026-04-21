@@ -60,7 +60,7 @@ export const PidTuningPanel: React.FC<PidTuningPanelProps> = ({
         <div className="protocol-banner">
           <div className="protocol-banner-text">
             <SlidersHorizontal size={16} />
-            <span>Protocol: <code>PID,&lt;id&gt;,&lt;kp&gt;,&lt;ki&gt;,&lt;kd&gt;,...,&lt;flags&gt;</code></span>
+            <span>Protocol: <code>VX/1 binary frame, target 1-4, 9 x float32 LE + flags + CRC16</code></span>
           </div>
           <span className={`status-inline ${statusTone}`}>{statusMessage}</span>
         </div>

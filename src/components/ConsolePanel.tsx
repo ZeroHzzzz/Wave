@@ -6,18 +6,27 @@ interface ConsolePanelProps {
   logs: ConsoleEntry[];
   mode: 'string' | 'hex';
   filter: 'all' | 'rx';
+  showTimestamps: boolean;
   onModeChange: (mode: 'string' | 'hex') => void;
   onFilterChange: (filter: 'all' | 'rx') => void;
+  onToggleTimestamps: () => void;
   onClear: () => void;
 }
 
-function renderConsoleEntry(entry: ConsoleEntry, mode: 'string' | 'hex') {
-  const directionLabel = entry.direction.toUpperCase();
+function renderConsoleEntry(
+  entry: ConsoleEntry,
+  mode: 'string' | 'hex',
+  showTimestamps: boolean
+) {
   const payload = mode === 'hex'
     ? (entry.hex || '--')
     : (entry.text || '--');
 
-  return `[${entry.timestamp.toFixed(3)}s] ${directionLabel}: ${payload}`;
+  if (!showTimestamps) {
+    return payload;
+  }
+
+  return `[${entry.timestamp.toFixed(3)}s] ${payload}`;
 }
 
 export function ConsolePanel({
@@ -25,24 +34,27 @@ export function ConsolePanel({
   logs,
   mode,
   filter,
+  showTimestamps,
   onModeChange,
   onFilterChange,
+  onToggleTimestamps,
   onClear
 }: ConsolePanelProps) {
   const rawDataPanelRef = useRef<HTMLDivElement>(null);
 
+  const visibleLogs = logs
+    .filter((entry) => (filter === 'all' ? true : entry.direction === 'rx'))
+    .slice()
+    .reverse();
+
   useEffect(() => {
-    if (!rawDataPanelRef.current || logs.length === 0) {
+    if (!rawDataPanelRef.current || visibleLogs.length === 0) {
       return;
     }
 
     const panel = rawDataPanelRef.current;
-    panel.scrollTop = panel.scrollHeight;
-  }, [logs]);
-
-  const visibleLogs = logs.filter((entry) => (
-    filter === 'all' ? true : entry.direction === 'rx'
-  ));
+    panel.scrollTop = 0;
+  }, [visibleLogs]);
 
   return (
     <section className="panel console-panel">
@@ -64,6 +76,14 @@ export function ConsolePanel({
               onClick={() => onModeChange('hex')}
             >
               Hex Raw
+            </button>
+          </div>
+          <div className="console-mode-switch">
+            <button
+              className={`console-mode-btn ${showTimestamps ? 'active' : ''}`}
+              onClick={onToggleTimestamps}
+            >
+              Timestamp {showTimestamps ? 'On' : 'Off'}
             </button>
           </div>
           <div className="console-mode-switch">
@@ -93,9 +113,9 @@ export function ConsolePanel({
 
       <div ref={rawDataPanelRef} className="raw-data-panel">
         {visibleLogs.map((log) => (
-          <p key={log.id} className={`console-entry ${log.direction}`}>
-            {renderConsoleEntry(log, mode)}
-          </p>
+          <div key={log.id} className={`console-entry ${log.direction}`}>
+            {renderConsoleEntry(log, mode, showTimestamps)}
+          </div>
         ))}
       </div>
     </section>

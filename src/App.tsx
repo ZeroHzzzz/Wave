@@ -18,6 +18,7 @@ function App() {
   const [historyLimit, setHistoryLimit] = useState<number>(200000);
   const [consoleMode, setConsoleMode] = useState<'string' | 'hex'>('string');
   const [consoleFilter, setConsoleFilter] = useState<'all' | 'rx'>('all');
+  const [showConsoleTimestamps, setShowConsoleTimestamps] = useState(true);
   const [scopeHeight, setScopeHeight] = useState(560);
   const [isResizingScope, setIsResizingScope] = useState(false);
 
@@ -55,7 +56,7 @@ function App() {
     clearData,
     clearLogs,
     clearVersion,
-    sendText
+    sendBytes
   } = useSerialReceiver(channels, historyLimit, delimiter, handleDataLengthChange);
   const {
     cards: pidCards,
@@ -67,7 +68,7 @@ function App() {
     sendAll,
     exportCards,
     importFromFile
-  } = usePidCards(sendText);
+  } = usePidCards(sendBytes);
 
   useEffect(() => {
     if (!isResizingScope) {
@@ -286,8 +287,10 @@ function App() {
             logs={rawLogs}
             mode={consoleMode}
             filter={consoleFilter}
+            showTimestamps={showConsoleTimestamps}
             onModeChange={setConsoleMode}
             onFilterChange={setConsoleFilter}
+            onToggleTimestamps={() => setShowConsoleTimestamps(prev => !prev)}
             onClear={clearLogs}
           />
         </div>

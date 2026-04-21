@@ -65,6 +65,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
   gap: 16px;
+  align-items: stretch;
+}
+
+.bottom-workspace > * {
+  min-height: 0;
+  height: 100%;
 }
 
 .panel {
@@ -145,6 +151,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .scope-main {

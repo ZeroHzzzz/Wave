@@ -438,6 +438,38 @@ export function useSerialReceiver(
     }
   }, [appendLogs, buildHexString, createConsoleEntry]);
 
+  const sendBytes = useCallback(async (payload: Uint8Array, label: string = 'binary packet') => {
+    const port = portRef.current;
+    if (!port?.writable) {
+      return {
+        ok: false,
+        message: 'Serial port is not connected.'
+      };
+    }
+
+    const writer = port.writable.getWriter();
+
+    try {
+      await writer.write(payload);
+      appendLogs([createConsoleEntry('tx', label, buildHexString(payload))]);
+
+      return {
+        ok: true,
+        message: ''
+      };
+    } catch (error: any) {
+      const message = error?.message ?? 'Failed to send data over serial.';
+      appendLogs([createConsoleEntry('error', message, '')]);
+
+      return {
+        ok: false,
+        message
+      };
+    } finally {
+      writer.releaseLock();
+    }
+  }, [appendLogs, buildHexString, createConsoleEntry]);
+
   return { 
     data, 
     rawLogs, 
@@ -453,6 +485,7 @@ export function useSerialReceiver(
     clearData,
     clearLogs,
     clearVersion,
-    sendText
+    sendText,
+    sendBytes
   };
 }

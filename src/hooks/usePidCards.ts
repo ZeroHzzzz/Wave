@@ -2,19 +2,19 @@ import { useCallback, useRef, useState } from 'react';
 import type { PidTuneCard } from '../types';
 import { createPidCard } from '../constants/appDefaults';
 import { deserializePidCards, serializePidCards } from '../utils/pidPersistence';
-import { buildPidCommand } from '../utils/pidProtocol';
+import { buildPidPacket } from '../utils/pidProtocol';
 
 interface PidStatus {
   tone: 'neutral' | 'success' | 'error';
   message: string;
 }
 
-interface SendTextResult {
+interface SendPacketResult {
   ok: boolean;
   message: string;
 }
 
-type SendTextFn = (payload: string) => Promise<SendTextResult>;
+type SendPacketFn = (payload: Uint8Array, label?: string) => Promise<SendPacketResult>;
 
 function downloadJsonFile(payload: unknown, filename: string) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -27,7 +27,7 @@ function downloadJsonFile(payload: unknown, filename: string) {
   URL.revokeObjectURL(objectUrl);
 }
 
-export function usePidCards(sendText: SendTextFn) {
+export function usePidCards(sendPacket: SendPacketFn) {
   const [cards, setCards] = useState<PidTuneCard[]>(() => [createPidCard(1)]);
   const [status, setStatus] = useState<PidStatus>({
     tone: 'neutral',
@@ -50,23 +50,39 @@ export function usePidCards(sendText: SendTextFn) {
   }, []);
 
   const sendCards = useCallback(async (targetCards: PidTuneCard[]) => {
-    const commands = targetCards.map(card => buildPidCommand(card));
-    if (commands.some(command => command === null)) {
+    const packets = targetCards.map(card => buildPidPacket(card));
+    if (packets.some(packet => packet === null)) {
       setStatus({
         tone: 'error',
-        message: 'Some cards are incomplete. Please fill ID and all float parameters before sending.'
+        message: 'Some cards are incomplete. Please fill a numeric target ID and all float parameters before sending.'
       });
       return;
     }
 
-    const result = await sendText(commands.join(''));
+    for (const packetInfo of packets) {
+      if (!packetInfo) {
+        return;
+      }
+
+      const result = await sendPacket(
+        packetInfo.packet,
+        `PID_SET target=${packetInfo.targetId} seq=${packetInfo.sequence}`
+      );
+
+      if (!result.ok) {
+        setStatus({
+          tone: 'error',
+          message: result.message
+        });
+        return;
+      }
+    }
+
     setStatus({
-      tone: result.ok ? 'success' : 'error',
-      message: result.ok
-        ? `Sent ${targetCards.length} PID ${targetCards.length === 1 ? 'card' : 'cards'} successfully.`
-        : result.message
+      tone: 'success',
+      message: `Sent ${targetCards.length} PID ${targetCards.length === 1 ? 'card' : 'cards'} successfully.`
     });
-  }, [sendText]);
+  }, [sendPacket]);
 
   const sendCard = useCallback(async (uid: string) => {
     const card = cards.find(item => item.uid === uid);

@@ -10,10 +10,12 @@ export const INITIAL_CHANNELS: ChannelConfig[] = [
 ];
 
 export function createPidCard(index: number): PidTuneCard {
+  const targetId = Math.min(Math.max(index, 1), 4);
+
   return {
     uid: `pid-card-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     name: `PID Card ${index}`,
-    targetId: `pid_${index}`,
+    targetId: String(targetId),
     kp: '0.000',
     ki: '0.000',
     kd: '0.000',
