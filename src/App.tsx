@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import ReactECharts from 'echarts-for-react';
+import { Activity, Map as MapIcon } from 'lucide-react';
 import './App.css';
 import type { ChannelConfig, ScopeDisplayMode } from './types';
 import { useSerialReceiver } from './hooks/useSerialReceiver';
 import { usePidCards } from './hooks/usePidCards';
 import { OscilloscopeDisplay } from './components/OscilloscopeDisplay';
+import { LogicCloudDisplay } from './components/LogicCloudDisplay';
 import { ChannelControl } from './components/ChannelControl';
 import { ScopeControlBar } from './components/ScopeControlBar';
 import { PidTuningPanel } from './components/PidTuningPanel';
@@ -12,8 +14,11 @@ import { ConsolePanel } from './components/ConsolePanel';
 import { createAutoChannel, INITIAL_CHANNELS } from './constants/appDefaults';
 import { buildRunStatePacket } from './utils/pidProtocol';
 
+type WorkspaceView = 'scope' | 'logicCloud';
+
 function App() {
   const [channels, setChannels] = useState<ChannelConfig[]>(INITIAL_CHANNELS);
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('scope');
   const [displayMode, setDisplayMode] = useState<ScopeDisplayMode>('timeline');
   const [delimiter, setDelimiter] = useState(',');
   const [baudRate, setBaudRate] = useState(115200);
@@ -30,6 +35,7 @@ function App() {
   const [isResizingScope, setIsResizingScope] = useState(false);
   const [isVehicleRunning, setIsVehicleRunning] = useState(false);
   const [isVehicleTogglePending, setIsVehicleTogglePending] = useState(false);
+  const [cloudResetVersion, setCloudResetVersion] = useState(0);
 
   const workspaceRef = useRef<HTMLDivElement>(null);
   const echartsRef = useRef<ReactECharts>(null);
@@ -163,6 +169,11 @@ function App() {
   };
 
   const handleAutoScale = () => {
+    if (workspaceView === 'logicCloud') {
+      setCloudResetVersion(prev => prev + 1);
+      return;
+    }
+
     if (data.length === 0) return;
 
     if (displayMode === 'coordinate') {
@@ -252,14 +263,40 @@ function App() {
           <div className="panel-header">
             <div>
               <p className="panel-eyebrow">Monitor</p>
-              <h2 className="panel-title">Oscilloscope Workspace</h2>
+              <h2 className="panel-title">
+                {workspaceView === 'scope' ? 'Oscilloscope Workspace' : 'Logic Cloud Workspace'}
+              </h2>
             </div>
-            <span className="header-chip compact">Timeline zoom enabled</span>
+            <div className="panel-header-actions">
+              <div className="view-switch" aria-label="Workspace view">
+                <button
+                  className={`view-switch-btn ${workspaceView === 'scope' ? 'active' : ''}`}
+                  onClick={() => setWorkspaceView('scope')}
+                  type="button"
+                >
+                  <Activity size={15} />
+                  Scope
+                </button>
+                <button
+                  className={`view-switch-btn ${workspaceView === 'logicCloud' ? 'active' : ''}`}
+                  onClick={() => setWorkspaceView('logicCloud')}
+                  type="button"
+                >
+                  <MapIcon size={15} />
+                  Logic Cloud
+                </button>
+              </div>
+              <span className="header-chip compact">
+                {workspaceView === 'scope' ? 'Timeline zoom enabled' : 'INS + line cloud'}
+              </span>
+            </div>
           </div>
 
-          <div className="scope-workspace">
+          {workspaceView === 'scope' ? (
+            <div className="scope-workspace">
             <div className="scope-main">
               <ScopeControlBar
+                showScopeOptions
                 isConnected={isConnected}
                 isConnecting={isConnecting}
                 isPaused={isPaused}
@@ -329,6 +366,54 @@ function App() {
               </div>
             </aside>
           </div>
+          ) : (
+            <div className="logic-cloud-page">
+              <ScopeControlBar
+                showScopeOptions={false}
+                isConnected={isConnected}
+                isConnecting={isConnecting}
+                isPaused={isPaused}
+                hasSelectedPort={hasSelectedPort}
+                selectedPortLabel={selectedPortLabel}
+                baudRate={baudRate}
+                delimiter={delimiter}
+                displayMode={displayMode}
+                historyLimit={historyLimit}
+                coordinateXChannelId={coordinateXChannelId}
+                coordinateYChannelId={coordinateYChannelId}
+                coordinateWindowSize={coordinateWindowSize}
+                availableChannels={channels}
+                sampleCount={data.length}
+                visibleChannelCount={channels.filter(ch => ch.visible).length}
+                isVehicleRunning={isVehicleRunning}
+                isVehicleTogglePending={isVehicleTogglePending}
+                onSelectDevice={selectDevice}
+                onBaudRateChange={setBaudRate}
+                onChangeDelimiter={setDelimiter}
+                onDisplayModeChange={setDisplayMode}
+                onHistoryLimitChange={setHistoryLimit}
+                onCoordinateXChannelChange={setCoordinateXChannelId}
+                onCoordinateYChannelChange={setCoordinateYChannelId}
+                onCoordinateWindowSizeChange={(value) => {
+                  const normalizedValue = Number.isFinite(value) ? Math.round(value) : 10;
+                  setCoordinateWindowSize(Math.min(Math.max(normalizedValue, 10), historyLimit));
+                }}
+                onConnect={() => connect(baudRate)}
+                onDisconnect={disconnect}
+                onToggleVehicleRun={handleToggleVehicleRun}
+                onTogglePause={togglePause}
+                onClear={clearData}
+                onAutoScale={handleAutoScale}
+              />
+
+              <LogicCloudDisplay
+                channels={channels}
+                data={data}
+                clearVersion={clearVersion}
+                resetVersion={cloudResetVersion}
+              />
+            </div>
+          )}
         </section>
 
         <div

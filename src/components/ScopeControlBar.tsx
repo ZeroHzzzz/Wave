@@ -3,6 +3,7 @@ import { Cpu, Eraser, Link, Loader2, Pause, Play, Power, Unlink, ZoomIn } from '
 import type { ChannelConfig, ScopeDisplayMode } from '../types';
 
 interface ScopeControlBarProps {
+  showScopeOptions?: boolean;
   isConnected: boolean;
   isConnecting: boolean;
   isPaused: boolean;
@@ -37,6 +38,7 @@ interface ScopeControlBarProps {
 }
 
 export const ScopeControlBar: React.FC<ScopeControlBarProps> = ({
+  showScopeOptions = true,
   isConnected,
   isConnecting,
   isPaused,
@@ -147,13 +149,15 @@ export const ScopeControlBar: React.FC<ScopeControlBarProps> = ({
           </select>
         </label>
 
-        <label className="field-group compact field-inline">
-          <span>Display</span>
-          <select value={displayMode} onChange={(event) => onDisplayModeChange(event.target.value as ScopeDisplayMode)}>
-            <option value="timeline">Timeline</option>
-            <option value="coordinate">Coordinate</option>
-          </select>
-        </label>
+        {showScopeOptions && (
+          <label className="field-group compact field-inline">
+            <span>Display</span>
+            <select value={displayMode} onChange={(event) => onDisplayModeChange(event.target.value as ScopeDisplayMode)}>
+              <option value="timeline">Timeline</option>
+              <option value="coordinate">Coordinate</option>
+            </select>
+          </label>
+        )}
 
         <label className="field-group compact field-inline">
           <span>Cache</span>
@@ -166,7 +170,7 @@ export const ScopeControlBar: React.FC<ScopeControlBarProps> = ({
           </select>
         </label>
 
-        {displayMode === 'coordinate' && (
+        {showScopeOptions && displayMode === 'coordinate' && (
           <>
             <label className="field-group compact field-inline wide">
               <span>X Channel</span>
@@ -210,7 +214,7 @@ export const ScopeControlBar: React.FC<ScopeControlBarProps> = ({
           <span>Samples</span>
           <strong>{sampleCount.toLocaleString()}</strong>
         </div>
-        {displayMode === 'coordinate' && (
+        {showScopeOptions && displayMode === 'coordinate' && (
           <div className="metric-pill">
             <span>Point Window</span>
             <strong>{coordinateWindowSize.toLocaleString()}</strong>
@@ -220,10 +224,12 @@ export const ScopeControlBar: React.FC<ScopeControlBarProps> = ({
           <span>Vehicle Cmd</span>
           <strong>{isVehicleRunning ? 'RUN' : 'STOP'}</strong>
         </div>
-        <div className="metric-pill">
-          <span>Visible CH</span>
-          <strong>{visibleChannelCount}</strong>
-        </div>
+        {showScopeOptions && (
+          <div className="metric-pill">
+            <span>Visible CH</span>
+            <strong>{visibleChannelCount}</strong>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ConsoleEntry } from '../types';
 
 interface ConsolePanelProps {
@@ -29,6 +29,77 @@ function renderConsoleEntry(
   return `[${entry.timestamp.toFixed(3)}s] ${payload}`;
 }
 
+interface ConsoleDisplayRow {
+  id: string;
+  direction: ConsoleEntry['direction'];
+  content: string;
+}
+
+function buildConsoleDisplayRows(
+  logs: ConsoleEntry[],
+  mode: 'string' | 'hex',
+  showTimestamps: boolean
+): ConsoleDisplayRow[] {
+  if (mode === 'hex' || showTimestamps) {
+    return logs
+      .map((entry) => ({
+        id: entry.id,
+        direction: entry.direction,
+        content: renderConsoleEntry(entry, mode, showTimestamps)
+      }))
+      .reverse();
+  }
+
+  const rows: ConsoleDisplayRow[] = [];
+  let pendingRow: {
+    firstId: string;
+    direction: ConsoleEntry['direction'];
+    text: string;
+    lineIndex: number;
+  } | null = null;
+
+  const pushPendingRow = () => {
+    if (!pendingRow || pendingRow.text === '') {
+      return;
+    }
+
+    rows.push({
+      id: `${pendingRow.firstId}-line-${pendingRow.lineIndex}`,
+      direction: pendingRow.direction,
+      content: pendingRow.text
+    });
+  };
+
+  logs.forEach((entry) => {
+    if (pendingRow?.direction !== entry.direction) {
+      pushPendingRow();
+      pendingRow = {
+        firstId: entry.id,
+        direction: entry.direction,
+        text: '',
+        lineIndex: 0
+      };
+    }
+
+    const segments = (entry.text || '').split(/\r\n|\r|\n/);
+    pendingRow.text += segments[0] ?? '';
+
+    for (let index = 1; index < segments.length; index += 1) {
+      pushPendingRow();
+      pendingRow = {
+        firstId: entry.id,
+        direction: entry.direction,
+        text: segments[index] ?? '',
+        lineIndex: pendingRow.lineIndex + 1
+      };
+    }
+  });
+
+  pushPendingRow();
+
+  return rows.reverse();
+}
+
 export function ConsolePanel({
   isConnected,
   logs,
@@ -42,19 +113,22 @@ export function ConsolePanel({
 }: ConsolePanelProps) {
   const rawDataPanelRef = useRef<HTMLDivElement>(null);
 
-  const visibleLogs = logs
-    .filter((entry) => (filter === 'all' ? true : entry.direction === 'rx'))
-    .slice()
-    .reverse();
+  const displayRows = useMemo(() => {
+    const filteredLogs = logs.filter((entry) => (
+      filter === 'all' ? true : entry.direction === 'rx'
+    ));
+
+    return buildConsoleDisplayRows(filteredLogs, mode, showTimestamps);
+  }, [filter, logs, mode, showTimestamps]);
 
   useEffect(() => {
-    if (!rawDataPanelRef.current || visibleLogs.length === 0) {
+    if (!rawDataPanelRef.current || displayRows.length === 0) {
       return;
     }
 
     const panel = rawDataPanelRef.current;
     panel.scrollTop = 0;
-  }, [visibleLogs]);
+  }, [displayRows]);
 
   return (
     <section className="panel console-panel">
@@ -112,9 +186,9 @@ export function ConsolePanel({
       </div>
 
       <div ref={rawDataPanelRef} className="raw-data-panel">
-        {visibleLogs.map((log) => (
-          <div key={log.id} className={`console-entry ${log.direction}`}>
-            {renderConsoleEntry(log, mode, showTimestamps)}
+        {displayRows.map((row) => (
+          <div key={row.id} className={`console-entry ${row.direction}`}>
+            {row.content}
           </div>
         ))}
       </div>

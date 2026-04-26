@@ -336,6 +336,8 @@ export function useSerialReceiver(
                 ? trimmedLine.split(/\s+/)
                 : trimmedLine.split(delimiter);
               const parts = rawParts.map(part => parseFloat(part.trim()));
+
+              if (parts.length === 0 || Number.isNaN(parts[0])) return;
               
               if (onDataLengthChange) {
                 const validPartsCount = parts.length;

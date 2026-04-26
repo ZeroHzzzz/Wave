@@ -38,6 +38,10 @@
   .device-pill {
     max-width: none;
   }
+
+  .logic-cloud-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -60,5 +64,14 @@
   .scope-control-actions,
   .scope-metrics {
     width: 100%;
+  }
+
+  .logic-cloud-grid,
+  .logic-cloud-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .logic-cloud-page {
+    padding: 12px;
   }
 }
