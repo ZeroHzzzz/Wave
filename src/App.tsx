@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import ReactECharts from 'echarts-for-react';
 import './App.css';
-import type { ChannelConfig } from './types';
+import type { ChannelConfig, ScopeDisplayMode } from './types';
 import { useSerialReceiver } from './hooks/useSerialReceiver';
 import { usePidCards } from './hooks/usePidCards';
 import { OscilloscopeDisplay } from './components/OscilloscopeDisplay';
@@ -10,17 +10,26 @@ import { ScopeControlBar } from './components/ScopeControlBar';
 import { PidTuningPanel } from './components/PidTuningPanel';
 import { ConsolePanel } from './components/ConsolePanel';
 import { createAutoChannel, INITIAL_CHANNELS } from './constants/appDefaults';
+import { buildRunStatePacket } from './utils/pidProtocol';
 
 function App() {
   const [channels, setChannels] = useState<ChannelConfig[]>(INITIAL_CHANNELS);
+  const [displayMode, setDisplayMode] = useState<ScopeDisplayMode>('timeline');
   const [delimiter, setDelimiter] = useState(',');
   const [baudRate, setBaudRate] = useState(115200);
   const [historyLimit, setHistoryLimit] = useState<number>(200000);
+  const [coordinateXChannelId, setCoordinateXChannelId] = useState(INITIAL_CHANNELS[0]?.id ?? '');
+  const [coordinateYChannelId, setCoordinateYChannelId] = useState(
+    INITIAL_CHANNELS[1]?.id ?? INITIAL_CHANNELS[0]?.id ?? ''
+  );
+  const [coordinateWindowSize, setCoordinateWindowSize] = useState<number>(500);
   const [consoleMode, setConsoleMode] = useState<'string' | 'hex'>('string');
   const [consoleFilter, setConsoleFilter] = useState<'all' | 'rx'>('all');
   const [showConsoleTimestamps, setShowConsoleTimestamps] = useState(true);
   const [scopeHeight, setScopeHeight] = useState(560);
   const [isResizingScope, setIsResizingScope] = useState(false);
+  const [isVehicleRunning, setIsVehicleRunning] = useState(false);
+  const [isVehicleTogglePending, setIsVehicleTogglePending] = useState(false);
 
   const workspaceRef = useRef<HTMLDivElement>(null);
   const echartsRef = useRef<ReactECharts>(null);
@@ -104,6 +113,21 @@ function App() {
     };
   }, [isResizingScope]);
 
+  useEffect(() => {
+    setCoordinateXChannelId(prev => (
+      channels.some(channel => channel.id === prev) ? prev : (channels[0]?.id ?? '')
+    ));
+    setCoordinateYChannelId(prev => (
+      channels.some(channel => channel.id === prev)
+        ? prev
+        : (channels[1]?.id ?? channels[0]?.id ?? '')
+    ));
+  }, [channels]);
+
+  useEffect(() => {
+    setCoordinateWindowSize(prev => Math.min(prev, historyLimit));
+  }, [historyLimit]);
+
   const updateChannel = (id: string, updates: Partial<ChannelConfig>) => {
     setChannels(prev => prev.map(ch => (ch.id === id ? { ...ch, ...updates } : ch)));
   };
@@ -111,6 +135,23 @@ function App() {
   const handleImportPidCards = () => {
     pidImportInputRef.current?.click();
   };
+
+  const handleToggleVehicleRun = useCallback(async () => {
+    const nextRunState = !isVehicleRunning;
+    const packet = buildRunStatePacket(nextRunState);
+
+    setIsVehicleTogglePending(true);
+    const result = await sendBytes(
+      packet.packet,
+      `RUN_SET state=${nextRunState ? 1 : 0} seq=${packet.sequence}`
+    );
+
+    if (result.ok) {
+      setIsVehicleRunning(nextRunState);
+    }
+
+    setIsVehicleTogglePending(false);
+  }, [isVehicleRunning, sendBytes]);
 
   const handlePidFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -123,6 +164,31 @@ function App() {
 
   const handleAutoScale = () => {
     if (data.length === 0) return;
+
+    if (displayMode === 'coordinate') {
+      if (echartsRef.current) {
+        const echart = echartsRef.current.getEchartsInstance();
+        echart.dispatchAction({
+          type: 'dataZoom',
+          dataZoomId: 'zoomXInside',
+          start: 0,
+          end: 100
+        });
+        echart.dispatchAction({
+          type: 'dataZoom',
+          dataZoomId: 'zoomYInside',
+          start: 0,
+          end: 100
+        });
+        echart.dispatchAction({
+          type: 'dataZoom',
+          dataZoomId: 'zoomXSlider',
+          start: 0,
+          end: 100
+        });
+      }
+      return;
+    }
 
     let min = Infinity;
     let max = -Infinity;
@@ -201,15 +267,30 @@ function App() {
                 selectedPortLabel={selectedPortLabel}
                 baudRate={baudRate}
                 delimiter={delimiter}
+                displayMode={displayMode}
                 historyLimit={historyLimit}
+                coordinateXChannelId={coordinateXChannelId}
+                coordinateYChannelId={coordinateYChannelId}
+                coordinateWindowSize={coordinateWindowSize}
+                availableChannels={channels}
                 sampleCount={data.length}
                 visibleChannelCount={channels.filter(ch => ch.visible).length}
+                isVehicleRunning={isVehicleRunning}
+                isVehicleTogglePending={isVehicleTogglePending}
                 onSelectDevice={selectDevice}
                 onBaudRateChange={setBaudRate}
                 onChangeDelimiter={setDelimiter}
+                onDisplayModeChange={setDisplayMode}
                 onHistoryLimitChange={setHistoryLimit}
+                onCoordinateXChannelChange={setCoordinateXChannelId}
+                onCoordinateYChannelChange={setCoordinateYChannelId}
+                onCoordinateWindowSizeChange={(value) => {
+                  const normalizedValue = Number.isFinite(value) ? Math.round(value) : 10;
+                  setCoordinateWindowSize(Math.min(Math.max(normalizedValue, 10), historyLimit));
+                }}
                 onConnect={() => connect(baudRate)}
                 onDisconnect={disconnect}
+                onToggleVehicleRun={handleToggleVehicleRun}
                 onTogglePause={togglePause}
                 onClear={clearData}
                 onAutoScale={handleAutoScale}
@@ -220,6 +301,10 @@ function App() {
                   channels={channels}
                   data={data}
                   clearVersion={clearVersion}
+                  displayMode={displayMode}
+                  coordinateXChannelId={coordinateXChannelId}
+                  coordinateYChannelId={coordinateYChannelId}
+                  coordinateWindowSize={coordinateWindowSize}
                   echartsRef={echartsRef}
                 />
               </div>

@@ -12,6 +12,7 @@
 - 串口实时接收并绘制多通道波形
 - 支持动态识别通道数量
 - 支持 `String / Hex Raw` 串口控制台
+- 支持车辆启停按钮控制
 - 支持 PID 参数卡片编辑、单卡发送、批量发送
 - 支持 PID 参数导入/导出为 `JSON`
 - 支持示波器区域高度拖动
@@ -60,6 +61,7 @@ npm run preview
 - `Select Device`：选择串口设备
 - `Connect / Disconnect`：连接或断开当前设备
 - `Freeze / Resume`：冻结或恢复波形刷新
+- `Start Vehicle / Stop Vehicle`：通过 `VX/1` 控制消息切换车辆运行状态
 - `Auto Scale`：自动调整 Y 轴范围
 - `Clear`：清空当前波形数据和控制台数据
 - `Baud`：串口波特率
@@ -208,6 +210,17 @@ SOF0 SOF1 VER TYPE LEN SEQ PAYLOAD CRC16
 - `VER = 0x01`
 - `TYPE = 0x01`，表示 `PID_SET`
 - `LEN = 38`，表示当前 PID 负载长度
+
+### 运行控制协议
+
+车辆启停按钮使用同一套 `VX/1` 帧头，只是消息类型不同：
+
+- `TYPE = 0x02`，表示 `RUN_SET`
+- `LEN = 1`
+- `PAYLOAD[0] = 0` 表示停机
+- `PAYLOAD[0] = 1` 表示运行
+
+下位机收到后会切换 `state_flag`，与实体按键的启停逻辑保持一致。
 
 ### Payload 布局
 

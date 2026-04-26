@@ -1,4 +1,5 @@
 export type WaveformType = 'sine' | 'square' | 'noise' | 'sawtooth' | 'triangle';
+export type ScopeDisplayMode = 'timeline' | 'coordinate';
 
 export interface ChannelConfig {
   id: string;
